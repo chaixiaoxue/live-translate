@@ -14,6 +14,10 @@ def test_default_values():
     assert cfg.max_display_items == 3
     assert cfg.vad_sensitivity == 2
     assert cfg.silence_threshold_ms == 800
+    assert cfg.window_x is None
+    assert cfg.window_y is None
+    assert cfg.window_width == 400
+    assert cfg.window_height == 300
 
 
 def test_save_and_load():
