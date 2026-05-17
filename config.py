@@ -13,7 +13,7 @@ class Config:
         "max_display_items": 3,
         "vad_sensitivity": 2,
         "silence_threshold_ms": 350,
-        "max_segment_seconds": 4.0,
+        "max_segment_seconds": 10.0,
         "window_x": None,
         "window_y": None,
         "window_width": 400,

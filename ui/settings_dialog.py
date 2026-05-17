@@ -1,8 +1,15 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-    QComboBox, QSlider, QSpinBox, QPushButton,
-    QGroupBox, QFormLayout,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSlider,
+    QSpinBox,
+    QVBoxLayout,
 )
 
 
@@ -16,12 +23,11 @@ class SettingsDialog(QDialog):
 
     def _setup_ui(self):
         self.setWindowTitle("设置")
-        self.setFixedSize(350, 400)
+        self.setFixedSize(360, 440)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
         layout = QVBoxLayout()
 
-        # Whisper Model
         model_group = QGroupBox("语音识别模型")
         model_layout = QFormLayout()
         self._model_combo = QComboBox()
@@ -31,12 +37,11 @@ class SettingsDialog(QDialog):
         model_group.setLayout(model_layout)
         layout.addWidget(model_group)
 
-        # Display
         display_group = QGroupBox("显示设置")
         display_layout = QFormLayout()
 
         self._opacity_slider = QSlider(Qt.Horizontal)
-        self._opacity_slider.setRange(30, 90)
+        self._opacity_slider.setRange(30, 100)
         self._opacity_slider.setValue(int(self._config.opacity * 100))
         self._opacity_label = QLabel(f"{int(self._config.opacity * 100)}%")
         self._opacity_slider.valueChanged.connect(
@@ -60,7 +65,6 @@ class SettingsDialog(QDialog):
         display_group.setLayout(display_layout)
         layout.addWidget(display_group)
 
-        # VAD
         vad_group = QGroupBox("语音检测")
         vad_layout = QFormLayout()
 
@@ -76,12 +80,18 @@ class SettingsDialog(QDialog):
         self._silence_spin.setSuffix(" ms")
         vad_layout.addRow("静音阈值:", self._silence_spin)
 
+        self._max_segment_spin = QSpinBox()
+        self._max_segment_spin.setRange(4, 20)
+        self._max_segment_spin.setSingleStep(1)
+        self._max_segment_spin.setValue(int(self._config.max_segment_seconds))
+        self._max_segment_spin.setSuffix(" s")
+        vad_layout.addRow("单段最长:", self._max_segment_spin)
+
         vad_group.setLayout(vad_layout)
         layout.addWidget(vad_group)
 
         layout.addStretch()
 
-        # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
@@ -104,5 +114,6 @@ class SettingsDialog(QDialog):
         self._config.max_display_items = self._items_spin.value()
         self._config.vad_sensitivity = self._sensitivity_combo.currentIndex()
         self._config.silence_threshold_ms = self._silence_spin.value()
+        self._config.max_segment_seconds = float(self._max_segment_spin.value())
         self._config.save()
         self.accept()
