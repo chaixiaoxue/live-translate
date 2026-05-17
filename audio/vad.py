@@ -13,13 +13,17 @@ class VADSegmenter:
         sample_rate: int = 16000,
         sensitivity: int = 2,
         silence_threshold_ms: int = 800,
+        max_segment_seconds: float = 4.0,
     ):
         self._sample_rate = sample_rate
         self._vad = webrtcvad.Vad(sensitivity)
         self._silence_threshold_ms = silence_threshold_ms
         self._frame_duration_ms = 30
         self._frame_size = int(sample_rate * self._frame_duration_ms / 1000)  # 480 samples
-        self._silence_frames = int(silence_threshold_ms / self._frame_duration_ms)
+        self._silence_frames = max(1, int(silence_threshold_ms / self._frame_duration_ms))
+        self._max_speech_frames = max(
+            1, int(max_segment_seconds * 1000 / self._frame_duration_ms)
+        )
         self._speech_frames: list[np.ndarray] = []
         self._consecutive_silence = 0
 
@@ -39,6 +43,11 @@ class VADSegmenter:
             if is_speech:
                 self._speech_frames.append(frame.copy())
                 self._consecutive_silence = 0
+                if len(self._speech_frames) >= self._max_speech_frames:
+                    segment = np.concatenate(self._speech_frames)
+                    segments.append(segment)
+                    self._speech_frames = []
+                    self._consecutive_silence = 0
             else:
                 if self._speech_frames:
                     self._consecutive_silence += 1

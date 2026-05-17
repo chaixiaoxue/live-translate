@@ -44,13 +44,35 @@ class AudioCapture:
         )
 
         if not default_speakers.get("isLoopbackDevice", False):
+            default_name = self._normalize_device_name(default_speakers["name"])
+            fallback = None
             for i in range(self._pa.get_device_count()):
                 dev = self._pa.get_device_info_by_index(i)
                 if dev.get("isLoopbackDevice", False):
-                    return dev
+                    if fallback is None:
+                        fallback = dev
+                    loopback_name = self._normalize_device_name(dev["name"])
+                    if default_name and default_name in loopback_name:
+                        return dev
+            if fallback is not None:
+                logger.warning(
+                    "Default output loopback not found for %s; using %s",
+                    default_speakers["name"],
+                    fallback["name"],
+                )
+                return fallback
             raise RuntimeError("No loopback device found. Ensure speakers are enabled.")
 
         return default_speakers
+
+    def _normalize_device_name(self, name: str) -> str:
+        return (
+            name.replace("[Loopback]", "")
+            .replace("（", "(")
+            .replace("）", ")")
+            .strip()
+            .lower()
+        )
 
     def _resample(self, audio: np.ndarray, src_rate: int, channels: int) -> np.ndarray:
         """Resample audio to target sample rate and convert to mono."""

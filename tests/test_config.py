@@ -13,7 +13,8 @@ def test_default_values():
     assert cfg.font_size == 14
     assert cfg.max_display_items == 3
     assert cfg.vad_sensitivity == 2
-    assert cfg.silence_threshold_ms == 800
+    assert cfg.silence_threshold_ms == 350
+    assert cfg.max_segment_seconds == 4.0
     assert cfg.window_x is None
     assert cfg.window_y is None
     assert cfg.window_width == 400

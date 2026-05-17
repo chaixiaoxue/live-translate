@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import torch  # noqa: F401 - load torch DLLs before ctranslate2 on Windows.
 from faster_whisper import WhisperModel
 
 logger = logging.getLogger(__name__)

@@ -59,6 +59,7 @@ class ProcessingPipeline:
             sample_rate=16000,
             sensitivity=self._config.vad_sensitivity,
             silence_threshold_ms=self._config.silence_threshold_ms,
+            max_segment_seconds=self._config.max_segment_seconds,
         )
         self._running = True
         self._thread = threading.Thread(target=self._process_loop, daemon=True)

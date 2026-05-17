@@ -1,7 +1,7 @@
 import os
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction
+from PyQt5.QtWidgets import QApplication, QStyle, QSystemTrayIcon, QMenu, QAction
 
 
 class TrayIcon(QSystemTrayIcon):
@@ -17,7 +17,12 @@ class TrayIcon(QSystemTrayIcon):
         if os.path.exists(icon_path):
             self.setIcon(QIcon(icon_path))
         else:
-            self.setIcon(QIcon.fromTheme("audio-input-microphone"))
+            icon = QIcon.fromTheme("audio-input-microphone")
+            if icon.isNull() and QApplication.instance() is not None:
+                icon = QApplication.instance().style().standardIcon(
+                    QStyle.SP_ComputerIcon
+                )
+            self.setIcon(icon)
 
         self.setToolTip("Live Translate - 实时翻译")
 
