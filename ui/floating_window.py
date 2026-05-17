@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
     QLabel,
     QPushButton,
     QSizePolicy,
+    QSizeGrip,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
@@ -36,6 +37,7 @@ class FloatingWindow(QWidget):
         if self._config.window_x is not None:
             self.move(self._config.window_x, self._config.window_y)
         self.resize(self._config.window_width, self._config.window_height)
+        self.setMinimumSize(320, 220)
         self._ensure_on_screen()
 
         layout = QVBoxLayout()
@@ -107,6 +109,11 @@ class FloatingWindow(QWidget):
         self._cpu_label = QLabel("CPU: --%")
         self._cpu_label.setStyleSheet("color: #888888; font-size: 11px;")
         controls.addWidget(self._cpu_label)
+
+        self._size_grip = QSizeGrip(self)
+        self._size_grip.setFixedSize(14, 14)
+        self._size_grip.setStyleSheet("background: transparent;")
+        controls.addWidget(self._size_grip)
 
         layout.addLayout(controls)
         self.setLayout(layout)

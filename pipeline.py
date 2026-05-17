@@ -66,14 +66,14 @@ class ProcessingPipeline:
         self._thread.start()
         logger.info("Processing pipeline started.")
 
-    def stop(self):
+    def stop(self, flush: bool = True):
         """Stop the processing pipeline."""
         self._running = False
         if self._thread:
             self._thread.join(timeout=5)
             self._thread = None
         # Flush any remaining speech from VAD
-        if self._vad:
+        if flush and self._vad:
             remaining = self._vad.flush()
             for segment in remaining:
                 if len(segment) >= 8000:

@@ -167,8 +167,8 @@ def main():
 
             def on_pause():
                 try:
-                    pipeline.stop()
                     capture.stop()
+                    pipeline.stop(flush=False)
                     window.set_status("Paused")
                 except Exception:
                     logger.exception("Failed to pause listening.")
@@ -176,7 +176,7 @@ def main():
             def quit_app():
                 app.setProperty("is_quitting", True)
                 capture.stop()
-                pipeline.stop()
+                pipeline.stop(flush=True)
                 app.quit()
 
             window._btn_start.clicked.connect(on_start)
