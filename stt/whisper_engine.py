@@ -1,9 +1,31 @@
 import logging
+import os
+from pathlib import Path
 import numpy as np
-import torch  # noqa: F401 - load torch DLLs before ctranslate2 on Windows.
-from faster_whisper import WhisperModel
+
+from app_paths import app_dir
+
+os.environ.setdefault("HF_HOME", str(app_dir() / ".cache-data" / "huggingface"))
 
 logger = logging.getLogger(__name__)
+
+
+def _find_local_model(model_size: str) -> Path | None:
+    model_path = Path(model_size)
+    if model_path.exists():
+        return model_path
+
+    cache_name = f"models--Systran--faster-whisper-{model_size}"
+    snapshots_dir = app_dir() / ".cache-data" / "huggingface" / "hub" / cache_name / "snapshots"
+    if not snapshots_dir.exists():
+        return None
+
+    candidates = sorted(
+        (path for path in snapshots_dir.iterdir() if (path / "model.bin").exists()),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
 
 
 class WhisperEngine:
@@ -11,8 +33,21 @@ class WhisperEngine:
 
     def __init__(self, model_size: str = "base", language: str = "en"):
         self._language = language
-        logger.info("Loading Whisper model: %s", model_size)
-        self._model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        logger.info("Importing faster-whisper runtime.")
+        from faster_whisper import WhisperModel
+
+        local_model = _find_local_model(model_size)
+        if local_model is not None:
+            logger.info("Loading local Whisper model: %s", local_model)
+            self._model = WhisperModel(
+                str(local_model),
+                device="cpu",
+                compute_type="int8",
+                local_files_only=True,
+            )
+        else:
+            logger.info("Loading Whisper model: %s", model_size)
+            self._model = WhisperModel(model_size, device="cpu", compute_type="int8")
         logger.info("Whisper model loaded.")
 
     def transcribe(self, audio: np.ndarray) -> str:

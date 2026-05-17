@@ -5,19 +5,7 @@ import atexit
 
 import psutil
 
-from config import Config
-from audio.buffer import RingBuffer
-from audio.capture import AudioCapture
-from stt.whisper_engine import WhisperEngine
-from translate.argos_engine import ArgosTranslator
-from pipeline import ProcessingPipeline
-
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication
-
-from ui.floating_window import FloatingWindow
-from ui.settings_dialog import SettingsDialog
-from ui.tray_icon import TrayIcon
+from app_paths import app_dir
 
 logging.basicConfig(
     level=logging.INFO,
@@ -95,12 +83,35 @@ def _release_pid_lock():
 
 
 def main():
-    project_dir = os.path.dirname(__file__)
+    project_dir = str(app_dir())
     _configure_file_logging(project_dir)
+    logger.info("Starting Live Translate from %s", project_dir)
 
     if not _acquire_pid_lock(project_dir):
         logger.info("Another Live Translate instance is already running. Exiting.")
         return
+
+    logger.info("Importing PyQt...")
+    from PyQt5.QtCore import QTimer
+    from PyQt5.QtWidgets import QApplication
+
+    logger.info("Importing audio pipeline modules...")
+    from audio.buffer import RingBuffer
+    from audio.capture import AudioCapture
+    from config import Config
+    from pipeline import ProcessingPipeline
+
+    logger.info("Importing speech model module...")
+    from stt.whisper_engine import WhisperEngine
+
+    logger.info("Importing translation module...")
+    from translate.argos_engine import ArgosTranslator
+
+    logger.info("Importing UI modules...")
+    from ui.floating_window import FloatingWindow
+    from ui.settings_dialog import SettingsDialog
+    from ui.tray_icon import TrayIcon
+    logger.info("Imports complete.")
 
     config = Config(config_path=os.path.join(project_dir, "config.json"))
 

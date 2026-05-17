@@ -13,6 +13,12 @@ class FakeLanguage:
         return self._translator
 
 
+class FakePackage:
+    type = "translate"
+    from_code = "en"
+    to_code = "zh"
+
+
 def test_translate_returns_chinese():
     """Should translate English to Chinese."""
     mock_translator = MagicMock()
@@ -58,57 +64,49 @@ def test_translate_strips_whitespace():
 def test_uses_installed_package_without_download():
     """Should not update/download when the language pair is already installed."""
     translator = MagicMock()
-    languages = [FakeLanguage("en", translator), FakeLanguage("zh")]
 
     engine = ArgosTranslator.__new__(ArgosTranslator)
     engine._from_lang = "en"
     engine._to_lang = "zh"
     engine._translator = None
+    engine._package_module = MagicMock()
+    engine._package_module.get_installed_packages.return_value = [FakePackage()]
 
-    with (
-        patch(
-            "translate.argos_engine.argostranslate.translate.get_installed_languages",
-            return_value=languages,
-        ),
-        patch(
-            "translate.argos_engine.argostranslate.package.update_package_index"
-        ) as update_index,
-        patch("translate.argos_engine.argostranslate.package.install_from_path") as install,
-    ):
+    with patch("translate.argos_engine._DirectPackageTranslator", return_value=translator):
         engine._ensure_package_installed()
 
     assert engine._translator is translator
-    update_index.assert_not_called()
-    install.assert_not_called()
+    engine._package_module.update_package_index.assert_not_called()
+    engine._package_module.install_from_path.assert_not_called()
 
 
 def test_installs_bundled_package_before_downloading():
     """Should install the checked-in package when the language pair is missing."""
     translator = MagicMock()
-    languages_after_install = [FakeLanguage("en", translator), FakeLanguage("zh")]
 
     engine = ArgosTranslator.__new__(ArgosTranslator)
     engine._from_lang = "en"
     engine._to_lang = "zh"
     engine._translator = None
+    engine._package_module = MagicMock()
+    engine._package_module.get_installed_packages.side_effect = [
+        [],
+        [FakePackage()],
+    ]
 
     with (
-        patch(
-            "translate.argos_engine.argostranslate.translate.get_installed_languages",
-            side_effect=[[], languages_after_install],
-        ),
+        patch("translate.argos_engine._DirectPackageTranslator", return_value=translator),
         patch.object(
             engine,
             "_find_bundled_package",
             return_value=Path("vendor/argos-packages/translate-en_zh.argosmodel"),
         ),
-        patch(
-            "translate.argos_engine.argostranslate.package.update_package_index"
-        ) as update_index,
-        patch("translate.argos_engine.argostranslate.package.install_from_path") as install,
+        patch.object(engine, "_install_from_path_without_translate_import") as install,
     ):
         engine._ensure_package_installed()
 
     assert engine._translator is translator
-    install.assert_called_once_with("vendor\\argos-packages\\translate-en_zh.argosmodel")
-    update_index.assert_not_called()
+    install.assert_called_once_with(
+        Path("vendor/argos-packages/translate-en_zh.argosmodel")
+    )
+    engine._package_module.update_package_index.assert_not_called()
