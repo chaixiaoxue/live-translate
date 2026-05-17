@@ -1,0 +1,6 @@
+dist/LiveTranslate/**/*.pyd filter=lfs diff=lfs merge=lfs -text
+dist/LiveTranslate/**/*.exe filter=lfs diff=lfs merge=lfs -text
+dist/LiveTranslate/**/*.argosmodel filter=lfs diff=lfs merge=lfs -text
+dist/LiveTranslate/**/*.model filter=lfs diff=lfs merge=lfs -text
+dist/LiveTranslate/**/*.bin filter=lfs diff=lfs merge=lfs -text
+dist/LiveTranslate/**/*.dll filter=lfs diff=lfs merge=lfs -text

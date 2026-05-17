@@ -10,6 +10,14 @@ env/
 *.egg-info/
 dist/
 build/
+!dist/
+!dist/LiveTranslate/
+!dist/LiveTranslate/**
+dist/LiveTranslate/live_translate.log
+dist/LiveTranslate/live_translate.pid
+dist/LiveTranslate/.config-data/
+dist/LiveTranslate/.local-data/
+dist/LiveTranslate/.cache-data/argos-translate/
 
 # IDE
 .idea/
@@ -27,5 +35,9 @@ config.json
 *.pid
 .pytest_cache/
 .cache-data/
+!dist/LiveTranslate/.cache-data/
+!dist/LiveTranslate/.cache-data/huggingface/
+!dist/LiveTranslate/.cache-data/huggingface/**
+dist/LiveTranslate/.cache-data/huggingface/xet/
 .config-data/
 .local-data/
