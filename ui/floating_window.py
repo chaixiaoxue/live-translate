@@ -8,12 +8,61 @@ from PyQt5.QtWidgets import (
     QLabel,
     QPushButton,
     QSizePolicy,
-    QSizeGrip,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
 from html import escape
+
+
+class ResizeHandle(QLabel):
+    """Visible bottom-right resize handle for the frameless window."""
+
+    def __init__(self, target: QWidget):
+        super().__init__("///", target)
+        self._target = target
+        self._drag_start_pos = None
+        self._drag_start_size = None
+        self.setCursor(Qt.SizeFDiagCursor)
+        self.setAlignment(Qt.AlignRight | Qt.AlignBottom)
+        self.setFixedSize(22, 18)
+        self.setToolTip("Drag to resize")
+        self.setStyleSheet(
+            """
+            QLabel {
+                color: #bdbdbd;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 0;
+                background: transparent;
+            }
+            """
+        )
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._drag_start_pos = event.globalPos()
+            self._drag_start_size = self._target.size()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._drag_start_pos is not None and event.buttons() == Qt.LeftButton:
+            delta = event.globalPos() - self._drag_start_pos
+            min_size = self._target.minimumSize()
+            self._target.resize(
+                max(min_size.width(), self._drag_start_size.width() + delta.x()),
+                max(min_size.height(), self._drag_start_size.height() + delta.y()),
+            )
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._drag_start_pos = None
+        self._drag_start_size = None
+        event.accept()
 
 
 class FloatingWindow(QWidget):
@@ -110,10 +159,8 @@ class FloatingWindow(QWidget):
         self._cpu_label.setStyleSheet("color: #888888; font-size: 11px;")
         controls.addWidget(self._cpu_label)
 
-        self._size_grip = QSizeGrip(self)
-        self._size_grip.setFixedSize(14, 14)
-        self._size_grip.setStyleSheet("background: transparent;")
-        controls.addWidget(self._size_grip)
+        self._resize_handle = ResizeHandle(self)
+        controls.addWidget(self._resize_handle)
 
         layout.addLayout(controls)
         self.setLayout(layout)
