@@ -57,11 +57,6 @@ class SettingsDialog(QDialog):
         self._font_spin.setValue(self._config.font_size)
         display_layout.addRow("字体大小:", self._font_spin)
 
-        self._items_spin = QSpinBox()
-        self._items_spin.setRange(1, 10)
-        self._items_spin.setValue(self._config.max_display_items)
-        display_layout.addRow("显示条数:", self._items_spin)
-
         display_group.setLayout(display_layout)
         layout.addWidget(display_group)
 
@@ -111,7 +106,6 @@ class SettingsDialog(QDialog):
         self._config.whisper_model = self._model_combo.currentText()
         self._config.opacity = self._opacity_slider.value() / 100.0
         self._config.font_size = self._font_spin.value()
-        self._config.max_display_items = self._items_spin.value()
         self._config.vad_sensitivity = self._sensitivity_combo.currentIndex()
         self._config.silence_threshold_ms = self._silence_spin.value()
         self._config.max_segment_seconds = float(self._max_segment_spin.value())

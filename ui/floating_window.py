@@ -229,8 +229,6 @@ class FloatingWindow(QWidget):
         if self._is_paused:
             return
         self._items.append({"english": english, "chinese": chinese})
-        while len(self._items) > self._config.max_display_items:
-            self._items.pop(0)
         self._refresh_display()
 
     def _refresh_display(self):
@@ -267,6 +265,7 @@ class FloatingWindow(QWidget):
 
     def _on_start(self):
         self._is_paused = False
+        self._items = []
         self._btn_start.setEnabled(False)
         self._btn_pause.setEnabled(True)
         self.set_loading("Waiting for audio...")
