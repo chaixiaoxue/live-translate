@@ -3,15 +3,16 @@ from PyQt5.QtCore import Qt, QTimer, pyqtSlot
 from PyQt5.QtGui import QColor, QFont
 from PyQt5.QtWidgets import (
     QApplication,
-    QFrame,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QScrollArea,
+    QSizePolicy,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
+from html import escape
 
 
 class FloatingWindow(QWidget):
@@ -48,15 +49,19 @@ class FloatingWindow(QWidget):
         title_bar.addStretch()
         layout.addLayout(title_bar)
 
-        self._scroll_area = QScrollArea()
-        self._scroll_area.setWidgetResizable(True)
-        self._scroll_area.setFrameShape(QFrame.NoFrame)
-        self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self._scroll_area.setStyleSheet(
+        self._content_view = QTextBrowser()
+        self._content_view.setReadOnly(True)
+        self._content_view.setOpenExternalLinks(False)
+        self._content_view.setFrameShape(QTextBrowser.NoFrame)
+        self._content_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._content_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._content_view.setFont(QFont("Microsoft YaHei", self._config.font_size))
+        self._content_view.setStyleSheet(
             """
-            QScrollArea {
+            QTextBrowser {
                 background: transparent;
                 border: none;
+                color: #e0e0e0;
             }
             QScrollBar:vertical {
                 background: #1c1c1c;
@@ -75,19 +80,8 @@ class FloatingWindow(QWidget):
             }
             """
         )
-
-        self._content_widget = QWidget()
-        self._content_widget.setStyleSheet("background: transparent;")
-        self._content_layout = QVBoxLayout(self._content_widget)
-        self._content_layout.setContentsMargins(0, 0, 0, 0)
-        self._content_layout.setSpacing(6)
-        self._scroll_area.setWidget(self._content_widget)
-        layout.addWidget(self._scroll_area, 1)
-
-        self._placeholder = QLabel("Waiting for audio...")
-        self._placeholder.setStyleSheet("color: #aaaaaa; font-size: 14px;")
-        self._placeholder.setAlignment(Qt.AlignCenter)
-        self._content_layout.addWidget(self._placeholder)
+        layout.addWidget(self._content_view, 1)
+        self.set_loading("Waiting for audio...")
 
         controls = QHBoxLayout()
         controls.setSpacing(8)
@@ -185,25 +179,36 @@ class FloatingWindow(QWidget):
         self._refresh_display()
 
     def _refresh_display(self):
-        self._clear_content()
-
+        blocks = []
         for entry in reversed(self._items):
-            en_label = QLabel(entry["english"])
-            en_label.setWordWrap(True)
-            en_label.setStyleSheet("color: #e0e0e0; font-size: 13px;")
-            en_label.setFont(QFont("Segoe UI", self._config.font_size - 2))
+            english = escape(entry["english"])
+            chinese = escape(entry["chinese"])
+            blocks.append(
+                f"""
+                <div style="margin-bottom: 10px;">
+                    <div style="color: #e0e0e0; font-size: {self._config.font_size - 2}px;">
+                        {english}
+                    </div>
+                    <div style="color: #4fc3f7; font-size: {self._config.font_size}px; margin-top: 4px;">
+                        {chinese}
+                    </div>
+                    <div style="color: #444444; margin-top: 8px;">------------------------------</div>
+                </div>
+                """
+            )
 
-            zh_label = QLabel(entry["chinese"])
-            zh_label.setWordWrap(True)
-            zh_label.setStyleSheet("color: #4FC3F7; font-size: 15px;")
-            zh_label.setFont(QFont("Microsoft YaHei", self._config.font_size))
-
-            self._content_layout.addWidget(en_label)
-            self._content_layout.addWidget(zh_label)
-
-            sep = QLabel("-" * 40)
-            sep.setStyleSheet("color: #444444; font-size: 10px;")
-            self._content_layout.addWidget(sep)
+        self._content_view.setHtml(
+            """
+            <html>
+            <body style="margin: 0; padding: 0; font-family: Microsoft YaHei, Segoe UI, sans-serif;">
+            """
+            + "\n".join(blocks)
+            + """
+            </body>
+            </html>
+            """
+        )
+        self._content_view.verticalScrollBar().setValue(0)
 
     def _on_start(self):
         self._is_paused = False
@@ -224,20 +229,19 @@ class FloatingWindow(QWidget):
         self._on_settings_callback = callback
 
     def set_loading(self, message: str):
-        self._clear_content()
-        label = QLabel(message)
-        label.setStyleSheet("color: #FFD54F; font-size: 14px;")
-        label.setAlignment(Qt.AlignCenter)
-        self._content_layout.addWidget(label)
-        self._placeholder = label
+        self._content_view.setHtml(
+            f"""
+            <html>
+            <body style="margin: 0; padding: 0; color: #ffd54f; font-size: 14px;
+                         font-family: Microsoft YaHei, Segoe UI, sans-serif;">
+                {escape(message)}
+            </body>
+            </html>
+            """
+        )
 
     def _clear_content(self):
-        while self._content_layout.count():
-            item = self._content_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
-        self._placeholder = None
+        self._content_view.clear()
 
     def set_status(self, message: str):
         self.set_loading(message)

@@ -24,6 +24,7 @@ Thumbs.db
 # Project
 config.json
 *.log
+*.pid
 .pytest_cache/
 .cache-data/
 .config-data/

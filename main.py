@@ -1,6 +1,9 @@
 import logging
 import os
 import sys
+import atexit
+
+import psutil
 
 from config import Config
 from audio.buffer import RingBuffer
@@ -22,6 +25,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+_INSTANCE_LOCK_PATH = None
+
 
 def _configure_file_logging(project_dir: str):
     log_path = os.path.join(project_dir, "live_translate.log")
@@ -32,9 +37,70 @@ def _configure_file_logging(project_dir: str):
     logging.getLogger().addHandler(file_handler)
 
 
+def _command_belongs_to_project(command_line: str, project_dir: str) -> bool:
+    normalized_cmd = os.path.normcase(command_line or "")
+    normalized_project = os.path.normcase(os.path.abspath(project_dir))
+    return normalized_project in normalized_cmd and "main.py" in normalized_cmd
+
+
+def _acquire_pid_lock(project_dir: str) -> bool:
+    """Use a project-local pid file to prevent duplicate GUI instances."""
+    global _INSTANCE_LOCK_PATH
+    lock_path = os.path.join(project_dir, "live_translate.pid")
+    current_pid = os.getpid()
+
+    while True:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(str(current_pid))
+            break
+        except FileExistsError:
+            try:
+                with open(lock_path, "r", encoding="utf-8") as f:
+                    existing_pid = int(f.read().strip())
+                if existing_pid != current_pid and psutil.pid_exists(existing_pid):
+                    proc = psutil.Process(existing_pid)
+                    command_line = " ".join(proc.cmdline())
+                    if _command_belongs_to_project(command_line, project_dir):
+                        logger.info(
+                            "Another Live Translate instance is already running: %s",
+                            existing_pid,
+                        )
+                        return False
+            except (OSError, ValueError, psutil.Error):
+                pass
+
+            try:
+                os.remove(lock_path)
+            except OSError:
+                return False
+
+    _INSTANCE_LOCK_PATH = lock_path
+    atexit.register(_release_pid_lock)
+    return True
+
+
+def _release_pid_lock():
+    if _INSTANCE_LOCK_PATH is None:
+        return
+
+    try:
+        with open(_INSTANCE_LOCK_PATH, "r", encoding="utf-8") as f:
+            locked_pid = int(f.read().strip())
+        if locked_pid == os.getpid():
+            os.remove(_INSTANCE_LOCK_PATH)
+    except (OSError, ValueError):
+        pass
+
+
 def main():
     project_dir = os.path.dirname(__file__)
     _configure_file_logging(project_dir)
+
+    if not _acquire_pid_lock(project_dir):
+        logger.info("Another Live Translate instance is already running. Exiting.")
+        return
 
     config = Config(config_path=os.path.join(project_dir, "config.json"))
 
