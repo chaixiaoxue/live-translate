@@ -105,6 +105,7 @@ class FloatingWindow(QWidget):
         self._content_view.setOpenExternalLinks(False)
         self._content_view.setFrameShape(QTextBrowser.NoFrame)
         self._content_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._content_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self._content_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._content_view.setFont(QFont("Microsoft YaHei", self._config.font_size))
         self._content_view.setStyleSheet(
