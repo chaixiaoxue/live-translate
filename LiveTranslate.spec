@@ -1,4 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+import shutil
+
 from PyInstaller.utils.hooks import collect_all
 
 datas = [('vendor', 'vendor')]
@@ -57,3 +60,23 @@ coll = COLLECT(
     upx_exclude=[],
     name='LiveTranslate',
 )
+
+# PyQt5 wheels can carry an older VC runtime in Qt5/bin. Because Qt is
+# imported before faster-whisper/ctranslate2 runs inference, Windows may keep
+# that older MSVCP140.dll loaded for the whole process and native inference can
+# crash with APPCRASH in MSVCP140.dll. Keep the bundled Qt runtime in sync with
+# the system VC runtime used by modern C++ wheels.
+qt_bin_dir = os.path.join(DISTPATH, 'LiveTranslate', '_internal', 'PyQt5', 'Qt5', 'bin')
+system32_dir = os.path.join(os.environ.get('SystemRoot', r'C:\Windows'), 'System32')
+for dll_name in (
+    'msvcp140.dll',
+    'msvcp140_1.dll',
+    'msvcp140_2.dll',
+    'msvcp140_atomic_wait.dll',
+    'msvcp140_codecvt_ids.dll',
+    'vcruntime140.dll',
+    'vcruntime140_1.dll',
+):
+    source = os.path.join(system32_dir, dll_name)
+    if os.path.exists(source) and os.path.isdir(qt_bin_dir):
+        shutil.copy2(source, os.path.join(qt_bin_dir, dll_name))
