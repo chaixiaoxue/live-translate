@@ -14,6 +14,7 @@ class Config:
         "vad_sensitivity": 2,
         "silence_threshold_ms": 350,
         "max_segment_seconds": 10.0,
+        "audio_device_name": None,
         "window_x": None,
         "window_y": None,
         "window_width": 400,

@@ -12,6 +12,8 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
 )
 
+from audio.capture import AudioCapture
+
 
 class SettingsDialog(QDialog):
     """Settings panel for configuring the translation app."""
@@ -23,7 +25,7 @@ class SettingsDialog(QDialog):
 
     def _setup_ui(self):
         self.setWindowTitle("设置")
-        self.setFixedSize(360, 440)
+        self.setFixedSize(420, 500)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
         layout = QVBoxLayout()
@@ -36,6 +38,24 @@ class SettingsDialog(QDialog):
         model_layout.addRow("模型:", self._model_combo)
         model_group.setLayout(model_layout)
         layout.addWidget(model_group)
+
+        audio_group = QGroupBox("Audio Capture")
+        audio_layout = QFormLayout()
+        self._audio_device_combo = QComboBox()
+        self._audio_device_combo.addItem("System default output", None)
+        self._audio_devices = AudioCapture.list_loopback_devices()
+        for device in self._audio_devices:
+            self._audio_device_combo.addItem(device["name"], device["name"])
+        selected_device = self._config.audio_device_name
+        if selected_device:
+            index = self._audio_device_combo.findData(selected_device)
+            if index < 0:
+                self._audio_device_combo.addItem(f"{selected_device} (missing)", selected_device)
+                index = self._audio_device_combo.findData(selected_device)
+            self._audio_device_combo.setCurrentIndex(index)
+        audio_layout.addRow("System audio:", self._audio_device_combo)
+        audio_group.setLayout(audio_layout)
+        layout.addWidget(audio_group)
 
         display_group = QGroupBox("显示设置")
         display_layout = QFormLayout()
@@ -104,6 +124,7 @@ class SettingsDialog(QDialog):
 
     def _save(self):
         self._config.whisper_model = self._model_combo.currentText()
+        self._config.audio_device_name = self._audio_device_combo.currentData()
         self._config.opacity = self._opacity_slider.value() / 100.0
         self._config.font_size = self._font_spin.value()
         self._config.vad_sensitivity = self._sensitivity_combo.currentIndex()

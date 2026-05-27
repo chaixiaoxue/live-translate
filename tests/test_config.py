@@ -15,6 +15,7 @@ def test_default_values():
     assert cfg.vad_sensitivity == 2
     assert cfg.silence_threshold_ms == 350
     assert cfg.max_segment_seconds == 10.0
+    assert cfg.audio_device_name is None
     assert cfg.window_x is None
     assert cfg.window_y is None
     assert cfg.window_width == 400
@@ -31,12 +32,14 @@ def test_save_and_load():
         cfg.opacity = 0.5
         cfg.font_size = 20
         cfg.whisper_model = "small"
+        cfg.audio_device_name = "Speakers [Loopback]"
         cfg.save()
 
         cfg2 = Config(config_path=path)
         assert cfg2.opacity == 0.5
         assert cfg2.font_size == 20
         assert cfg2.whisper_model == "small"
+        assert cfg2.audio_device_name == "Speakers [Loopback]"
     finally:
         os.unlink(path)
 

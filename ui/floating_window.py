@@ -1,9 +1,9 @@
 import psutil
+from PyQt5 import sip
 from PyQt5.QtCore import Qt, QTimer, pyqtSlot
-from PyQt5.QtGui import QColor, QFont
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QApplication,
-    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -176,12 +176,6 @@ class FloatingWindow(QWidget):
             """
         )
 
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(20)
-        shadow.setColor(QColor(0, 0, 0, 160))
-        shadow.setOffset(0, 4)
-        self.setGraphicsEffect(shadow)
-
     def _button_style(self, color: str) -> str:
         return f"""
             QPushButton {{
@@ -207,6 +201,9 @@ class FloatingWindow(QWidget):
         self._cpu_timer.start(2000)
 
     def _update_cpu(self):
+        if self._deleted(self._cpu_label):
+            self._cpu_timer.stop()
+            return
         cpu = psutil.cpu_percent(interval=None)
         self._cpu_label.setText(f"CPU: {cpu:.0f}%")
 
@@ -226,12 +223,16 @@ class FloatingWindow(QWidget):
     @pyqtSlot(str, str)
     def add_translation(self, english: str, chinese: str):
         """Add a new translation result to the display."""
-        if self._is_paused:
+        if self._is_paused or self._deleted(self._content_view):
             return
         self._items.append({"english": english, "chinese": chinese})
+        self._items = self._items[-self._config.max_display_items :]
         self._refresh_display()
 
     def _refresh_display(self):
+        if self._deleted(self._content_view):
+            return
+
         blocks = []
         for entry in reversed(self._items):
             english = escape(entry["english"])
@@ -283,6 +284,8 @@ class FloatingWindow(QWidget):
         self._on_settings_callback = callback
 
     def set_loading(self, message: str):
+        if self._deleted(self._content_view):
+            return
         self._content_view.setHtml(
             f"""
             <html>
@@ -295,6 +298,8 @@ class FloatingWindow(QWidget):
         )
 
     def _clear_content(self):
+        if self._deleted(self._content_view):
+            return
         self._content_view.clear()
 
     def set_status(self, message: str):
@@ -322,6 +327,9 @@ class FloatingWindow(QWidget):
         self._config.window_height = self.height()
         self._config.save()
         event.accept()
+
+    def _deleted(self, widget) -> bool:
+        return widget is None or sip.isdeleted(widget)
 
     def _ensure_on_screen(self):
         screen = self.screen()

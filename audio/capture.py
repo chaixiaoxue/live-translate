@@ -19,25 +19,47 @@ class AudioCapture:
     to the provided ring buffer.
     """
 
-    def __init__(self, buffer, target_sample_rate: int = 16000):
+    def __init__(
+        self,
+        buffer,
+        target_sample_rate: int = 16000,
+        device_name: str | None = None,
+    ):
         self._buffer = buffer
         self._target_sample_rate = target_sample_rate
+        self._device_name = device_name
         self._running = False
         self._thread: threading.Thread | None = None
         self._pa: pyaudio.PyAudio | None = None
         self._stream: pyaudio.Stream | None = None
+        self._state_lock = threading.Lock()
 
     def _find_loopback_device(self) -> dict:
         """Find the default WASAPI loopback device."""
         if not HAS_PYAUDIO:
             raise RuntimeError("pyaudiowpatch not installed.")
 
-        self._pa = pyaudio.PyAudio()
+        if self._pa is None:
+            self._pa = pyaudio.PyAudio()
 
         try:
             wasapi_info = self._pa.get_host_api_info_by_type(pyaudio.paWASAPI)
         except OSError:
             raise RuntimeError("WASAPI not available on this system.")
+
+        if self._device_name:
+            selected_name = self._normalize_device_name(self._device_name)
+            for i in range(self._pa.get_device_count()):
+                dev = self._pa.get_device_info_by_index(i)
+                if not dev.get("isLoopbackDevice", False):
+                    continue
+                loopback_name = self._normalize_device_name(dev["name"])
+                if selected_name in loopback_name or loopback_name in selected_name:
+                    return dev
+            logger.warning(
+                "Configured audio device not found: %s. Falling back to default.",
+                self._device_name,
+            )
 
         default_speakers = self._pa.get_device_info_by_index(
             wasapi_info["defaultOutputDevice"]
@@ -74,6 +96,41 @@ class AudioCapture:
             .lower()
         )
 
+    @staticmethod
+    def list_loopback_devices() -> list[dict]:
+        """Return available WASAPI loopback devices for settings UI."""
+        if not HAS_PYAUDIO:
+            return []
+
+        pa = pyaudio.PyAudio()
+        try:
+            devices = []
+            try:
+                wasapi_info = pa.get_host_api_info_by_type(pyaudio.paWASAPI)
+            except OSError:
+                return []
+            for i in range(pa.get_device_count()):
+                dev = pa.get_device_info_by_index(i)
+                if dev.get("hostApi") == wasapi_info["index"] and dev.get(
+                    "isLoopbackDevice", False
+                ):
+                    devices.append(
+                        {
+                            "index": dev["index"],
+                            "name": dev["name"],
+                            "defaultSampleRate": dev["defaultSampleRate"],
+                            "maxInputChannels": dev["maxInputChannels"],
+                        }
+                    )
+            return devices
+        finally:
+            pa.terminate()
+
+    def set_device_name(self, device_name: str | None):
+        if self._running:
+            raise RuntimeError("Cannot change audio device while listening.")
+        self._device_name = device_name
+
     def _resample(self, audio: np.ndarray, src_rate: int, channels: int) -> np.ndarray:
         """Resample audio to target sample rate and convert to mono."""
         if channels == 2:
@@ -97,7 +154,7 @@ class AudioCapture:
         channels = int(device_info["maxInputChannels"])
 
         try:
-            self._stream = self._pa.open(
+            stream = self._pa.open(
                 format=pyaudio.paInt16,
                 channels=channels,
                 rate=sample_rate,
@@ -105,30 +162,44 @@ class AudioCapture:
                 input_device_index=device_info["index"],
                 frames_per_buffer=4096,
             )
+            with self._state_lock:
+                self._stream = stream
 
             logger.info("Audio capture started: %dHz, %d channels", sample_rate, channels)
 
             while self._running:
                 try:
-                    data = self._stream.read(4096, exception_on_overflow=False)
+                    data = stream.read(4096, exception_on_overflow=False)
                     audio = np.frombuffer(data, dtype=np.int16)
                     mono = self._resample(audio, sample_rate, channels)
                     self._buffer.write(mono)
                 except Exception as e:
-                    logger.error("Audio capture error: %s", e)
+                    if self._running:
+                        logger.error("Audio capture error: %s", e)
 
         except Exception as e:
             logger.error("Failed to open audio stream: %s", e)
         finally:
-            if self._stream:
-                self._stream.stop_stream()
-                self._stream.close()
+            with self._state_lock:
+                stream = self._stream
                 self._stream = None
+            if stream:
+                try:
+                    if stream.is_active():
+                        stream.stop_stream()
+                except Exception as e:
+                    logger.debug("Ignoring audio stream stop error: %s", e)
+                try:
+                    stream.close()
+                except Exception as e:
+                    logger.debug("Ignoring audio stream close error: %s", e)
 
     def start(self):
         """Start capturing system audio in a background thread."""
         if self._running:
             return
+        if self._thread and self._thread.is_alive():
+            raise RuntimeError("Audio capture is still stopping. Please try again.")
         device_info = self._find_loopback_device()
         logger.info("Loopback device: %s", device_info["name"])
         self._running = True
@@ -140,12 +211,20 @@ class AudioCapture:
     def stop(self):
         """Stop capturing audio."""
         self._running = False
+        with self._state_lock:
+            stream = self._stream
+        if stream:
+            try:
+                if stream.is_active():
+                    stream.stop_stream()
+            except Exception as e:
+                logger.debug("Ignoring audio stream interrupt error: %s", e)
         if self._thread:
             self._thread.join(timeout=5)
+            if self._thread.is_alive():
+                logger.warning("Audio capture thread did not stop within timeout.")
+                return
             self._thread = None
-        if self._pa:
-            self._pa.terminate()
-            self._pa = None
         logger.info("Audio capture stopped.")
 
     @property

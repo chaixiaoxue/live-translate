@@ -128,6 +128,13 @@ def main():
         if dialog.exec_():
             window.setWindowOpacity(config.opacity)
             window._refresh_display()
+            runtime = getattr(app, "_live_translate_runtime", {})
+            capture = runtime.get("capture")
+            if capture is not None:
+                try:
+                    capture.set_device_name(config.audio_device_name)
+                except RuntimeError:
+                    logger.info("Audio device change will apply after pausing.")
 
     def show_window():
         window.showNormal()
@@ -151,7 +158,11 @@ def main():
             window.set_loading("Loading translation model...")
             translator = ArgosTranslator(from_lang="en", to_lang="zh")
 
-            capture = AudioCapture(ring_buffer, target_sample_rate=16000)
+            capture = AudioCapture(
+                ring_buffer,
+                target_sample_rate=16000,
+                device_name=config.audio_device_name,
+            )
             pipeline = ProcessingPipeline(
                 ring_buffer=ring_buffer,
                 whisper_engine=whisper,
